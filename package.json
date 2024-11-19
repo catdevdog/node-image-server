@@ -13,6 +13,7 @@
     "dotenv": "^10.0.0",
     "mysql2": "^2.2.5",
     "node-schedule": "^2.1.0",
+    "sharp": "^0.33.5",
     "tesseract.js": "^5.1.1"
   }
 }

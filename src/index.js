@@ -243,7 +243,6 @@ const main = async () => {
 
     // 각 브랜드별 처리
     for (const brand of brands) {
-      if(brand !== 'theclimb_yeonnam') continue
       Logger.process(`브랜드 처리 중: ${brand}`);
       
       const processor = new PostProcessor(brand);

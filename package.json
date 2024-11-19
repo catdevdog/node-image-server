@@ -1,0 +1,18 @@
+{
+  "name": "climb",
+  "version": "0.1.0",
+  "description": "더클라임 블로그 스크래핑",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node src/index.js"
+  },
+  "dependencies": {
+    "axios": "^0.21.1",
+    "cheerio": "^1.0.0-rc.10",
+    "dotenv": "^10.0.0",
+    "mysql2": "^2.2.5",
+    "node-schedule": "^2.1.0",
+    "tesseract.js": "^5.1.1"
+  }
+}

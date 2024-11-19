@@ -29,7 +29,7 @@ const POST_TYPES = {
 const IMAGE_PROCESSING = {
   MAX_WIDTH: 2000,
   CROP_HEIGHT: 200,
-  // THRESHOLD: 150,
+  // THRESHOLD: 150, 텍스트 인식률 개선 테스트 -> 이진화 보류
 };
 
 const TESSERACT_CONFIG = {
@@ -80,7 +80,7 @@ const DatabaseService = {
    */
   async getBrandPosts(brandName) {
     try {
-      const [rows] = await db.query(`SELECT image_url, image_hash FROM ${brandName}`);
+      const [rows] = await db.query(`SELECT id, image_url, image_hash FROM ${brandName}`);
       return rows;
     } catch (error) {
       Logger.error(`${brandName} 브랜드의 게시물 조회 실패`, error);
@@ -205,8 +205,8 @@ class PostProcessor {
    * 단일 게시물 처리
    */
   async processPost(post, index) {
-    const { image_url, image_hash } = post;
-    const filepath = path.join(this.baseDir, `${index}-${image_hash}.jpg`);
+    const { id, image_url, image_hash } = post;
+    const filepath = path.join(this.baseDir, `${id}-${image_hash}.jpg`);
 
     // 이미지 다운로드
     const savedFilepath = await ImageService.downloadImage(image_url, filepath);
@@ -224,7 +224,7 @@ class PostProcessor {
       const typeDir = path.join(this.baseDir, postType);
       FileService.createDirectory(typeDir);
       
-      const typeFilePath = path.join(typeDir, `${index}-${image_hash}.jpg`);
+      const typeFilePath = path.join(typeDir, `${id}-${image_hash}.jpg`);
       FileService.copyImage(filepath, typeFilePath);
     }
   }

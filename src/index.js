@@ -21,9 +21,9 @@ const db = mysql.createPool({
  * 상수 정의
  */
 const POST_TYPES = {
-  RESET_SOON: "탈거임박",
-  RESET_COMPLETE: "세팅완료",
-  SETTING_SCHEDULE: "세팅일정",
+  RESET_SOON: "RESET_SOON",
+  RESET_COMPLETE: "RESET_COMPLETE",
+  SETTING_SCHEDULE: "SETTING_SCHEDULE",
 };
 
 const IMAGE_PROCESSING = {
@@ -69,8 +69,8 @@ const DatabaseService = {
    */
   async getBrandList() {
     try {
-      const [rows] = await db.query('SELECT brand_name FROM update_log');
-      return rows.map(item => item.brand_name);
+      const [rows] = await db.query('SELECT id, name FROM brands');
+      return rows;
     } catch (error) {
       Logger.error('브랜드 목록 조회 실패', error);
       return [];
@@ -80,13 +80,48 @@ const DatabaseService = {
   /**
    * 특정 브랜드의 최신 게시물 조회
    */
-  async getBrandPosts(brandName) {
+  async getBrandPosts(brandId) {
     try {
-      const [rows] = await db.query(`SELECT id, image_url, image_hash FROM ${brandName}`);
+      const [rows] = await db.query(
+        'SELECT id, image_url, image_hash FROM images WHERE brand_id = ? AND post_type IS NULL',
+        [brandId]
+      );
       return rows;
     } catch (error) {
-      Logger.error(`${brandName} 브랜드의 게시물 조회 실패`, error);
+      Logger.error(`브랜드 ID ${brandId}의 게시물 조회 실패`, error);
       return [];
+    }
+  },
+  
+  async updatePostType(postId, postType) {
+    try {
+      await db.query(
+        'UPDATE images SET post_type = ? WHERE id = ?',
+        [postType, postId]
+      );
+
+      // 브랜드의 최신 상태 업데이트
+      const [post] = await db.query(
+        'SELECT brand_id, image_hash FROM images WHERE id = ?',
+        [postId]
+      );
+
+      if (post.length > 0) {
+        const updateField = {
+          'RESET_SOON': 'reset_soon_hash',
+          'RESET_COMPLETE': 'reset_complete_hash',
+          'SETTING_SCHEDULE': 'setting_schedule_hash'
+        }[postType];
+
+        if (updateField) {
+          await db.query(
+            `UPDATE brands SET ${updateField} = ? WHERE id = ?`,
+            [post[0].image_hash, post[0].brand_id]
+          );
+        }
+      }
+    } catch (error) {
+      Logger.error(`게시물 타입 업데이트 실패 (ID: ${postId})`, error);
     }
   }
 };
@@ -202,9 +237,10 @@ const ImageService = {
  * 게시물 처리 작업
  */
 class PostProcessor {
-  constructor(brandName) {
+  constructor(brandName, brandId) {
     this.brandName = brandName;
-    this.baseDir = path.join(__dirname, "images", brandName, "posts");
+    this.brandId = brandId;
+    this.baseDir = path.join(__dirname, "images", brandName);
   }
 
   /**
@@ -217,9 +253,9 @@ class PostProcessor {
   /**
    * 단일 게시물 처리
    */
-  async processPost(post, index) {
+  async processPost(post, brand) {
     const { id, image_url, image_hash } = post;
-    const filepath = path.join(this.baseDir, `${id}-${image_hash}.jpg`);
+    const filepath = path.join(this.baseDir, `${brand.name}_${id}_${image_hash}.jpg`);
 
     // 이미지 다운로드
     const savedFilepath = await ImageService.downloadImage(image_url, filepath);
@@ -237,8 +273,11 @@ class PostProcessor {
       const typeDir = path.join(this.baseDir, postType);
       FileService.createDirectory(typeDir);
       
-      const typeFilePath = path.join(typeDir, `${id}-${image_hash}.jpg`);
+      const typeFilePath = path.join(typeDir, `${brand.name}_${id}_${image_hash}.jpg`);
       FileService.copyImage(filepath, typeFilePath);
+
+      // DB에 포스트 타입 업데이트
+      await DatabaseService.updatePostType(id, postType);
     }
   }
 }
@@ -252,23 +291,23 @@ const main = async () => {
     
     // 브랜드 목록 조회
     const brands = await DatabaseService.getBrandList();
-    Logger.info(`처리할 브랜드 목록: ${brands.join(', ')}`);
+    Logger.info(`처리할 브랜드 목록: ${brands.map(item=>item.name).join(', ')}`);
 
     // 각 브랜드별 처리
     for (const brand of brands) {
-      Logger.process(`브랜드 처리 중: ${brand}`);
+      Logger.process(`브랜드 처리 중: ${brand.name}`);
       
-      const processor = new PostProcessor(brand);
+      const processor = new PostProcessor(brand.name, brand.id);
       await processor.initialize();
 
-      const posts = await DatabaseService.getBrandPosts(brand);
-      
+      const posts = await DatabaseService.getBrandPosts(brand.id);
+
       for (let i = 0; i < posts.length; i++) {
         Logger.process(`게시물 처리 중: ${i + 1}/${posts.length}`);
-        await processor.processPost(posts[i], i + 1);
+        await processor.processPost(posts[i], brand);
       }
       
-      Logger.success(`브랜드 처리 완료: ${brand}`);
+      Logger.success(`브랜드 처리 완료: ${brand.name}`);
     }
 
     Logger.success('모든 작업이 완료되었습니다.');

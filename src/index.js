@@ -83,7 +83,7 @@ const DatabaseService = {
   async getBrandPosts(brandId) {
     try {
       const [rows] = await db.query(
-        'SELECT id, image_url, image_hash FROM images WHERE brand_id = ? AND post_type IS NULL',
+        'SELECT id, image_url, image_hash FROM images WHERE brand_id = ?',
         [brandId]
       );
       return rows;

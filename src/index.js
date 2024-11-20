@@ -27,9 +27,11 @@ const POST_TYPES = {
 };
 
 const IMAGE_PROCESSING = {
-  MAX_WIDTH: 2000,
-  CROP_HEIGHT: 200,
-  // THRESHOLD: 150, 텍스트 인식률 개선 테스트 -> 이진화 보류
+  "theclimb": {
+    MAX_WIDTH: 2000,
+    CROP_HEIGHT: 200,
+    // THRESHOLD: 150, 텍스트 인식률 개선 테스트 -> 이진화 보류
+  }
 };
 
 const TESSERACT_CONFIG = {
@@ -113,6 +115,17 @@ const FileService = {
 };
 
 /**
+ * 이미지 전처리 조건 세팅
+ */
+const BrandSetting = (brand) => {
+  let brandValue = ''
+  if(brand.includes('theclimb')){
+    brandValue = 'theclimb'
+  }
+  return IMAGE_PROCESSING[brandValue]
+}
+
+/**
  * 이미지 처리 관련 작업
  */
 const ImageService = {
@@ -144,7 +157,7 @@ const ImageService = {
   /**
    * 이미지 전처리 작업
    */
-  async preprocessImage(inputPath) {
+  async preprocessImage(inputPath, brandName) {
     try {
       const metadata = await sharp(inputPath).metadata();
       const processedBuffer = await sharp(inputPath)
@@ -152,9 +165,9 @@ const ImageService = {
           left: 0,
           top: 0,
           width: metadata.width,
-          height: IMAGE_PROCESSING.CROP_HEIGHT,
+          height: BrandSetting(brandName).CROP_HEIGHT,
         })
-        .resize({ width: IMAGE_PROCESSING.MAX_WIDTH })
+        .resize({ width: BrandSetting(brandName).MAX_WIDTH })
         // .threshold(IMAGE_PROCESSING.THRESHOLD)
         .toBuffer();
 
@@ -213,7 +226,7 @@ class PostProcessor {
     if (!savedFilepath) return;
 
     // 이미지 전처리
-    const processedBuffer = await ImageService.preprocessImage(savedFilepath);
+    const processedBuffer = await ImageService.preprocessImage(savedFilepath, this.brandName);
     if (!processedBuffer) return;
 
     // 텍스트 추출 및 분석

@@ -83,7 +83,12 @@ const DatabaseService = {
   async getBrandPosts(brandId) {
     try {
       const [rows] = await db.query(
-        'SELECT id, image_url, image_hash FROM images WHERE brand_id = ?',
+        `SELECT id, image_url, image_hash 
+          FROM images 
+          WHERE brand_id = ?
+          ORDER BY timestamp DESC
+          LIMIT 6
+        `,
         [brandId]
       );
       return rows;
